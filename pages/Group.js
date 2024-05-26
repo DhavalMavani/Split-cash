@@ -1,5 +1,7 @@
 // 1. Import Statements
-import React, { useRef, useState, useCallback } from 'react';
+import { Ionicons, AntDesign, SimpleLineIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
     Text,
     StyleSheet,
@@ -9,131 +11,176 @@ import {
     FlatList,
     TouchableOpacity,
     TextInput,
+    KeyboardAvoidingView,
+    Image,
+    ImageBackground,
+    Platform,
 } from 'react-native';
-import { Ionicons, AntDesign, SimpleLineIcons } from '@expo/vector-icons';
-import apiHelper from '../helper/apiHelper';
-import Loader from '../components/Loader';
-import PAGES from '../constants/pages';
-import FabIcon from '../components/FabIcon';
-import { useFocusEffect } from '@react-navigation/native';
+
 import LoginIcon from '../assets/Login.png';
-import GroupIcon from '../components/GroupIcon';
-import COLOR from '../constants/Colors';
-import { calcHeight, calcWidth } from '../helper/res';
-import { getFontSizeByWindowWidth } from '../helper/res';
-import { useTransaction } from '../context/TransactionContext';
-import { useAuth } from '../context/AuthContext';
-import getNamesFromContacts from '../helper/getNamesFromContacts';
+import ChatBackground from '../assets/chatBackground.png';
+import ScannerIcon from '../assets/icons/scanner.png';
+import BalanceGroupPin from '../components/BalanceGroupPin';
+import FabIcon from '../components/FabIcon';
 import Feed from '../components/Feed';
-import useSocket from '../hooks/useSocket';
+import GroupIcon from '../components/GroupIcon';
+import Loader from '../components/Loader';
+import COLOR from '../constants/Colors';
+import PAGES from '../constants/pages';
+import { useGroup } from '../context/GroupContext';
+import { useTransaction } from '../context/TransactionContext';
+import apiHelper from '../helper/apiHelper';
 import editNames from '../helper/editNames';
-function getMembersString(members) {
-    let names = [];
-    for (let i = 0; i < members.length; i++) {
-        if (members[i].hasOwnProperty('name') && members[i].name) {
-            let namePart = members[i].name.split(' ')[0];
-            names.push(namePart);
-        }
-    }
-    return names.join(', ');
-}
+import checkConnectivity from '../helper/getNetworkStateAsync';
+import { calcHeight, calcWidth, getFontSizeByWindowWidth } from '../helper/res';
+import sliceText from '../helper/sliceText';
+import { useContacts } from '../hooks/useContacts';
+import useSocket from '../hooks/useSocket';
+import { useAuth } from '../stores/auth';
+import useGroupActivities from '../stores/groupActivities';
+import getMembersString from '../utility/getMembersString';
+import groupBalancesAndCalculateTotal from '../utility/groupBalancesAndCalculateTotal';
+import syncAllChat from '../utility/syncAllChat';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 
 function isNumber(text) {
     return !isNaN(+text);
 }
 
-function GroupScreen({
-    navigation,
-    route: {
-        params: { group },
-    },
-}) {
+function GroupScreen({ navigation }) {
+    const { group } = useGroup();
     const textRef = useRef();
-    const [activities, setActivities] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const { activities, setActivities } = useGroupActivities(group._id);
     const { setTransactionData, resetTransaction } = useTransaction();
     const [amount, setAmount] = useState('');
-    const [contacts, setContacts] = useState([]);
+    const { contacts } = useContacts();
     const { user } = useAuth();
+    const [totalBalance, setTotalBalance] = useState();
+    const [balances, setBalances] = useState();
 
-    const fetchActivities = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const { data } = await apiHelper(
-                `/activity-feed?groupId=${group._id}`,
-            );
-            const contactsData = await getNamesFromContacts();
-            setContacts(contactsData);
-            for (let activity of data)
-                editNames([activity.creator], user._id, contactsData);
-            setActivities(data);
-        } catch (error) {
-            console.error('Error fetching activities:', error);
-        }
-        setIsLoading(false);
-    }, [group]);
+    const { fetchNextPage, hasNextPage } = useInfiniteQuery({
+        queryKey: ['group', group._id],
+        queryFn: async ({ pageParam = null }) => {
+            let data;
+
+            if (!pageParam) {
+                const res = await apiHelper(`/activity-feed?groupId=${group._id}`);
+                data = res.data;
+            } else {
+                const res = await apiHelper(`/activity-feed?groupId=${group._id}&lastActivityTime=${pageParam}`);
+                data = res.data;
+            }
+
+            setActivities((prev) => [...prev, ...data]);
+            return data;
+        },
+        getNextPageParam: (lastPage) => {
+            if (lastPage.length == 0) return null;
+            return lastPage[lastPage.length - 1].createdAt;
+        },
+    });
+
+    useQuery({
+        queryKey: ['balance', group._id],
+        enabled: !!group._id,
+        queryFn: async () => {
+            const { data } = await apiHelper(`/balance/${group._id}`);
+            if (data.length == 0) {
+                setTotalBalance(0);
+                return;
+            }
+            const { groups } = await groupBalancesAndCalculateTotal(data, user._id);
+            setTotalBalance(groups[0].totalBalance);
+            setBalances(groups[0]);
+            return groups;
+        },
+    });
+
+    const { mutate: addChat } = useMutation({
+        mutationFn: async (msg) => {
+            const isOnline = await checkConnectivity();
+            if (isOnline) {
+                await apiHelper.post(`/group/${group._id}/chat`, {
+                    message: msg,
+                });
+
+                return true;
+            }
+
+            return false;
+        },
+        onMutate: () => {
+            setAmount('');
+            setActivities((prev) => [
+                {
+                    activityType: 'chat',
+                    createdAt: Date(),
+                    creator: { _id: user._id },
+                    group: group._id,
+                    onModel: 'Chat',
+                    relatedId: {
+                        message: amount,
+                    },
+                    synced: false,
+                    offlineId: 'temp',
+                },
+                ...prev,
+            ]);
+            return amount;
+        },
+        onSuccess: (data) => {
+            if (data) {
+                setActivities((prev) => {
+                    const index = prev.findIndex((activity) => activity.offlineId === 'temp');
+                    prev[index].synced = true;
+                    prev[index].offlineId = undefined;
+                    return prev;
+                });
+            }
+        },
+        onError: (error, variables, context) => {
+            console.error('Error adding chat:', error);
+            setActivities((prev) => {
+                const index = prev.findIndex((activity) => activity.offlineId === 'temp');
+                prev[index].synced = false;
+                prev[index].offlineId = undefined;
+                return prev;
+            });
+        },
+    });
 
     const fetchActivity = useCallback(async (activity) => {
-        if (activity.creator == user._id) return;
-        editNames([activity.creator], user._id, contacts);
+        if (activity.creator._id === user._id) return;
         setActivities((prev) => [activity, ...prev]);
     }, []);
 
-    useFocusEffect(fetchActivities);
     useSocket('activity created', fetchActivity);
-
-    async function addChat() {
-        setActivities((prev) => [
-            {
-                activityType: 'chat',
-                createdAt: Date(),
-                creator: {
-                    _id: user._id,
-                    name: user.name,
-                },
-                group: group._id,
-                onModel: 'Chat',
-                relatedId: {
-                    message: amount,
-                },
-            },
-            ...prev,
-        ]);
-        setAmount('');
-        const { data } = await apiHelper.post(`/group/${group._id}/chat`, {
-            message: amount,
-        });
-    }
-
-    if (isLoading) {
-        return <Loader />;
-    }
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
+            <Pressable
+                style={styles.header}
+                onPress={() => {
+                    navigation.navigate(PAGES.GROUP_SETTINGS, {
+                        balance: totalBalance != 0,
+                    });
+                }}
+            >
                 <View
                     style={{
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        height: calcHeight(8),
                         gap: calcWidth(5),
                     }}
                 >
                     <Pressable onPress={() => navigation.goBack()}>
-                        <Ionicons
-                            name="chevron-back"
-                            size={calcHeight(3)}
-                            color="white"
-                        />
+                        <Ionicons name="chevron-back" size={calcHeight(3)} color="white" />
                     </Pressable>
-                    <GroupIcon image={LoginIcon} />
+                    <GroupIcon groupId={group._id} />
                     <View style={styles.groupNameContainer}>
-                        <Text style={styles.groupName}>{group.name}</Text>
-                        <Text style={styles.groupMembers}>
-                            {getMembersString(group.members)}
-                        </Text>
+                        <Text style={styles.groupName}>{sliceText(group.name, 25)}</Text>
+                        <Text style={styles.groupMembers}>{getMembersString(group.members, 20)}</Text>
                     </View>
                 </View>
                 <Pressable
@@ -145,42 +192,48 @@ function GroupScreen({
                         navigation.navigate(PAGES.SCANNER);
                     }}
                 >
-                    <AntDesign
-                        name="scan1"
-                        size={24}
-                        color="white"
+                    <Image
+                        source={ScannerIcon}
                         style={{
+                            width: calcHeight(3),
+                            height: calcHeight(3),
                             marginRight: calcWidth(5),
                         }}
                     />
                 </Pressable>
-            </View>
+            </Pressable>
+
+            <BalanceGroupPin totalBalance={totalBalance} balances={balances} />
             <FlatList
                 inverted
                 data={activities}
                 keyExtractor={(item) => item._id}
-                renderItem={({ item }) => (
-                    <Feed {...item} contacts={contacts} />
-                )}
+                renderItem={({ item }) => <Feed {...item} contacts={contacts} />}
                 style={{
-                    height: calcHeight(75),
+                    height: calcHeight(totalBalance != 0 ? 65 : 70),
+                }}
+                onEndReachedThreshold={0.5}
+                onEndReached={() => {
+                    if (hasNextPage) {
+                        fetchNextPage();
+                    }
                 }}
             />
-            <View
+            <KeyboardAvoidingView
                 style={{
-                    flex: 1,
+                    flex: Platform.OS === 'ios' ? 1 : 0,
                     flexDirection: 'row',
                     margin: calcWidth(2),
                     justifyContent: 'space-evenly',
                 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={calcHeight(9)}
             >
                 <Pressable
                     style={[
                         styles.inputContainer,
                         {
-                            width: isNumber(amount)
-                                ? calcWidth(60)
-                                : calcWidth(75),
+                            width: isNumber(amount) ? calcWidth(60) : calcWidth(75),
                         },
                     ]}
                     onPress={() => textRef.current.focus()}
@@ -212,15 +265,28 @@ function GroupScreen({
                         <Text style={styles.buttonText}>+ Expense</Text>
                     </TouchableOpacity>
                 ) : (
-                    <TouchableOpacity onPress={addChat}>
-                        <AntDesign
-                            name="enter"
-                            size={calcHeight(4)}
-                            color={COLOR.BUTTON}
-                        />
+                    <TouchableOpacity
+                        onPress={() => addChat(amount)}
+                        style={{
+                            height: calcHeight(5),
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <AntDesign name="enter" size={calcHeight(4)} color={COLOR.BUTTON} />
                     </TouchableOpacity>
                 )}
-            </View>
+            </KeyboardAvoidingView>
+            <Image
+                source={ChatBackground}
+                style={{
+                    position: 'absolute',
+                    zIndex: -100,
+                    height: calcHeight(90),
+                    bottom: 0,
+                    backgroundColor: 'black',
+                    width: calcWidth(100),
+                }}
+            />
         </SafeAreaView>
     );
 }
@@ -234,21 +300,22 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-    },
-    groupNameContainer: {
-        // marginLeft: calcWidth(5),
+        height: calcHeight(8),
+        backgroundColor: COLOR.APP_BACKGROUND,
     },
     groupName: {
         color: 'white',
         fontWeight: 'bold',
+        fontSize: getFontSizeByWindowWidth(12),
     },
     groupMembers: {
         color: '#A5A5A5',
+        fontSize: getFontSizeByWindowWidth(11),
     },
     button: {
         width: calcWidth(25),
         height: calcHeight(5),
-        borderRadius: 10,
+        borderRadius: calcWidth(2),
         backgroundColor: COLOR.BUTTON,
         elevation: 3,
         justifyContent: 'center',
@@ -263,13 +330,14 @@ const styles = StyleSheet.create({
         color: 'white',
         width: calcWidth(60),
         height: calcHeight(5),
+        borderRadius: calcWidth(2),
         alignContent: 'center',
     },
     input: {
         flex: 1,
         borderWidth: 1,
         borderColor: 'gray',
-        borderRadius: 10,
+        borderRadius: calcWidth(2),
         color: 'white',
         fontSize: getFontSizeByWindowWidth(10),
     },

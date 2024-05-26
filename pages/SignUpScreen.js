@@ -1,47 +1,29 @@
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    StyleSheet,
-    SafeAreaView,
-    KeyboardAvoidingView,
-    Image,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, SafeAreaView, KeyboardAvoidingView, Image, Platform } from 'react-native';
 import SignUpImage from '../assets/SignUp.png'; // Make sure you have an image for the sign-up
 import COLOR from '../constants/Colors'; // Replace with your actual colors
 import PAGES from '../constants/pages'; // Replace with your actual page constants
 import Button from '../components/Button'; // Replace with your actual button component
 import { calcHeight, calcWidth, getFontSizeByWindowWidth } from '../helper/res'; // Replace with your actual responsive helpers
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../stores/auth';
 const SignUpScreen = ({ navigation }) => {
     const [name, setName] = useState(''); // State for the name
     const [isNameFocused, setIsNameFocused] = useState(false); // State to handle the focus styling
     const { addName } = useAuth();
     const getTextInputStyle = (isFocused) => ({
         ...styles.nameInput,
-        borderBottomColor: isFocused
-            ? 'rgba(255, 255, 255, 1)'
-            : 'rgba(255, 255, 255, 0.5)',
+        borderBottomColor: isFocused ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.5)',
     });
 
+    console.log('name', name.length > 0, name)
+
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <View style={styles.innerContainer}>
+            <View style={styles.container}>
                 <View style={styles.header}>
-                    <Image
-                        source={SignUpImage}
-                        style={styles.image}
-                        resizeMode="contain"
-                    />
+                    <Image source={SignUpImage} style={styles.image} resizeMode="contain" />
                     <View style={styles.textContainer}>
                         <Text style={styles.headerText}>Your Name</Text>
-                        <Text style={styles.promptText}>
-                            What should we call you?
-                        </Text>
+                        <Text style={styles.promptText}>What should we call you?</Text>
                     </View>
                 </View>
                 <View style={styles.inputContainer}>
@@ -61,7 +43,8 @@ const SignUpScreen = ({ navigation }) => {
                     }}
                 >
                     <Button
-                        title="Verify"
+                        disabled={name.length < 1}
+                        title="Save"
                         onPress={() => {
                             addName(name);
                             navigation.navigate(PAGES.GROUP_LIST);
@@ -69,7 +52,6 @@ const SignUpScreen = ({ navigation }) => {
                     />
                 </View>
             </View>
-        </KeyboardAvoidingView>
     );
 };
 
@@ -78,8 +60,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLOR.APP_BACKGROUND,
         justifyContent: 'center',
-    },
-    innerContainer: {
         width: '100%',
         paddingHorizontal: calcWidth(5),
     },

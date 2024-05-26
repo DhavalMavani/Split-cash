@@ -1,43 +1,38 @@
+import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import React, { useEffect, useState, useRef } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    Alert,
-    Pressable,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert, Pressable } from 'react-native';
+import Toast from 'react-native-root-toast';
+import { StackActions } from '@react-navigation/native';
 
-import apiHelper from '../helper/apiHelper';
-import PAGES from '../constants/pages';
-import Loader from '../components/Loader';
-import COLOR from '../constants/Colors';
+import AmountInput from '../components/AmountInput';
 import Button from '../components/Button';
+import Loader from '../components/Loader';
 import Categories from '../constants/Categories';
-import { calcHeight, calcWidth, getFontSizeByWindowWidth } from '../helper/res';
-import { MaterialIcons } from '@expo/vector-icons';
-import { AntDesign } from '@expo/vector-icons';
+import COLOR from '../constants/Colors';
+import PAGES from '../constants/pages';
 import { useTransaction } from '../context/TransactionContext';
+import apiHelper from '../helper/apiHelper';
+import checkConnectivity from '../helper/getNetworkStateAsync';
 import getPreviousPageName from '../helper/getPreviousPageName';
+import { calcHeight, calcWidth, getFontSizeByWindowWidth } from '../helper/res';
+import { useAuth } from '../stores/auth';
+import { useGroup } from '../context/GroupContext';
+import useGroupActivities, { useGroupActivitiesStore } from '../stores/groupActivities';
+
 function TransactionFormScreen({ navigation }) {
     const [loading, setIsLoading] = useState(false);
-    const {
-        transactionData,
-        setTransactionData,
-        resetTransaction,
-        upiParams,
-        setUpiParams,
-    } = useTransaction();
+    const { transactionData, setTransactionData, resetTransaction, upiParams, setUpiParams } = useTransaction();
     const descriptionRef = useRef();
+    const { user } = useAuth();
+    const { setGroup } = useGroup();
+
+    const { setActivitiesHash, getActivities } = useGroupActivitiesStore();
+
     useEffect(() => {
         const { group } = transactionData;
         if (group && group.members) {
             const totalMembers = group.members.length;
-            const perUserPayment = Math.floor(
-                transactionData.amount / totalMembers,
-            );
+            const perUserPayment = Math.floor(transactionData.amount / totalMembers);
             const remainder = transactionData.amount % totalMembers;
 
             setTransactionData((prev) => ({
@@ -45,21 +40,29 @@ function TransactionFormScreen({ navigation }) {
                 splitAmong: group.members.map((user, index) => ({
                     amount: perUserPayment + (index < remainder ? 1 : 0),
                     user,
+                    paidBy: { _id: user?._id, name: 'You' },
                 })),
             }));
         }
     }, [transactionData.amount, transactionData.group]);
 
     useEffect(() => {
-        if (getPreviousPageName(navigation) == PAGES.TAB_NAVIGATOR)
-            resetTransaction();
-        else if (getPreviousPageName(navigation) == PAGES.SCANNER) {
-            if (upiParams.am)
-                setTransactionData((prev) => ({
-                    ...prev,
-                    amount: upiParams.am,
-                }));
+        setTransactionData((prev) => ({
+            ...prev,
+            paidBy: { _id: user?._id, name: 'You' },
+        }));
+    }, [transactionData.group]);
+
+    useEffect(() => {
+        if (upiParams.am) {
+            setTransactionData((prev) => ({
+                ...prev,
+                amount: upiParams.am || '',
+            }));
         }
+        return () => {
+            resetTransaction();
+        };
     }, []);
 
     const handleInputChange = (field, value) => {
@@ -72,27 +75,31 @@ function TransactionFormScreen({ navigation }) {
     const handleCategorySelect = (category) => {
         setTransactionData((prev) => ({
             ...prev,
-            category: category,
+            type: category,
         }));
     };
 
     const handleSubmit = async () => {
-        if (
-            !(
-                transactionData.amount &&
-                transactionData.description &&
-                transactionData.group
-            )
-        ) {
-            alert('All fiends are required');
+        if (!transactionData.amount) {
+            alert('Amount Missing');
             return;
         }
-        setIsLoading(true);
+
+        if (Object.keys(transactionData.group).length === 0) {
+            alert('Group not added');
+            return;
+        }
+
+        if (!transactionData.type) {
+            alert('Category Missing');
+            return;
+        }
+
         try {
             // Create a new object with modifications, leaving original transactionData unchanged
-            const modifiedTransactionData = {
+            const newTransaction = {
                 ...transactionData,
-                amount: parseInt(transactionData.amount),
+                amount: parseInt(transactionData.amount, 10),
                 group: transactionData.group._id,
                 paidBy: transactionData.paidBy._id,
                 splitAmong: transactionData.splitAmong.map((user) => ({
@@ -100,56 +107,79 @@ function TransactionFormScreen({ navigation }) {
                     user: user.user._id || user.user.id,
                 })),
             };
+            const newActivity = {
+                relatedId: {
+                    ...newTransaction,
+                    group: transactionData.group,
+                    paidBy: transactionData.paidBy,
+                    splitAmong: transactionData.splitAmong.map((user) => ({
+                        amount: user.amount,
+                        user: transactionData.group.members.find((member) => member._id === (user.user._id || user.user.id)),
+                    })),
+                },
+                creator: { _id: user._id, name: 'You' },
+                synced: false,
+                createdAt: new Date(),
+                activityType: 'transaction',
+            };
 
-            const { data } = await apiHelper.post(
-                '/transaction',
-                modifiedTransactionData,
-            );
+            const activities = Array.from(getActivities(newTransaction.group));
+            setActivitiesHash(newTransaction.group, [newActivity, ...activities]);
+
+            const isOnline = await checkConnectivity();
+
+            if (isOnline) {
+                apiHelper
+                    .post('/transaction', newTransaction)
+                    .then((res) => {
+                        setActivitiesHash(newTransaction.group, [
+                            {
+                                ...newActivity,
+                                synced: true,
+                            },
+                            ...activities,
+                        ]);
+                    })
+                    .catch((err) => {
+                        console.log('error', err);
+                        Alert.alert('Error', JSON.stringify(err));
+                    });
+            }
 
             if (upiParams.receiverId) {
                 setUpiParams((prev) => ({
                     ...prev,
-                    am: modifiedTransactionData.amount,
+                    am: newActivity.amount,
                 }));
                 navigation.navigate(PAGES.UPI_APP_SELECTION);
                 return;
             }
-            Alert.alert('Success', JSON.stringify(data));
-            navigation.goBack();
+            Toast.show('Transaction Added', {
+                duration: Toast.durations.LONG,
+            });
+            setGroup(transactionData.group);
+
+            const pushAction = StackActions.push(PAGES.TAB_NAVIGATOR, {});
+            navigation.dispatch(pushAction);
+
+            navigation.navigate(PAGES.GROUP);
         } catch (error) {
             console.log('error', error);
-            Alert.alert('Error', 'There was an error saving the transaction.');
+            Alert.alert('Error', JSON.stringify(error));
         }
-        setIsLoading(false);
     };
 
     return loading ? (
         <Loader />
     ) : (
         <ScrollView style={styles.container}>
-            <View style={styles.rowCentered}>
-                <Text style={styles.amount}>₹</Text>
-                <TextInput
-                    style={styles.amount}
-                    onChangeText={(text) => handleInputChange('amount', text)}
-                    value={transactionData.amount}
-                    keyboardType="numeric"
-                    placeholderTextColor={COLOR.TEXT}
-                    placeholder="0"
-                    autoFocus
-                />
-            </View>
+            <AmountInput amount={transactionData.amount} handleInputChange={(text) => handleInputChange('amount', text)} isTextInput />
 
             <View style={styles.rowCentered}>
-                <Pressable
-                    style={styles.descriptionContainer}
-                    onPress={() => descriptionRef.current.focus()}
-                >
+                <Pressable style={styles.descriptionContainer} onPress={() => descriptionRef.current.focus()}>
                     <TextInput
                         style={styles.description}
-                        onChangeText={(text) =>
-                            handleInputChange('description', text)
-                        }
+                        onChangeText={(text) => handleInputChange('description', text)}
                         value={transactionData.description}
                         placeholder="Description"
                         placeholderTextColor="#ccc"
@@ -163,7 +193,7 @@ function TransactionFormScreen({ navigation }) {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{
-                    marginVertical: calcHeight(5),
+                    marginVertical: calcHeight(3),
                 }}
             >
                 {Categories.map((item, index) => (
@@ -171,22 +201,18 @@ function TransactionFormScreen({ navigation }) {
                         key={index}
                         style={[
                             styles.categoryItem,
-                            transactionData.category === item.name &&
-                                styles.selectedCategory,
+                            transactionData.type === item.name && styles.selectedCategory,
+                            {
+                                borderColor: '#4D426C',
+                                borderWidth: 1,
+                                borderRadius: 10,
+                                marginHorizontal: calcWidth(1),
+                            },
                         ]}
                         onPress={() => handleCategorySelect(item.name)}
                     >
                         {item.icon}
-                        <Text
-                            style={[
-                                styles.categoryText,
-                                transactionData.category === item.name && {
-                                    color: 'black',
-                                },
-                            ]}
-                        >
-                            {item.name}
-                        </Text>
+                        <Text style={[styles.categoryText]}>{item.name}</Text>
                     </Pressable>
                 ))}
             </ScrollView>
@@ -195,39 +221,33 @@ function TransactionFormScreen({ navigation }) {
                     <Pressable
                         style={{
                             backgroundColor: '#302B49',
-                            padding: calcWidth(5),
-                            borderRadius: 10,
+                            padding: calcWidth(4),
+                            borderRadius: 8,
                             flexDirection: 'row',
                             alignItems: 'center',
-                            justifyContent: 'space-evenly',
+                            justifyContent: 'space-between',
                         }}
                         onPress={() => {
                             navigation.navigate(PAGES.SELECT_GROUP);
                         }}
                     >
-                        <MaterialIcons
-                            name="group-add"
+                        <View
                             style={{
-                                marginRight: calcWidth(3),
-                            }}
-                            size={calcWidth(8)}
-                            color="white"
-                        />
-                        <Text
-                            style={{
-                                color: 'white',
+                                flexDirection: 'row',
+                                alignItems: 'center',
                             }}
                         >
-                            {transactionData.group?.name || 'Add Group'}
-                        </Text>
-                        <AntDesign
-                            name="right"
-                            size={calcWidth(5)}
-                            color="white"
-                            style={{
-                                marginLeft: calcWidth(40),
-                            }}
-                        />
+                            <MaterialIcons name="group-add" size={calcWidth(8)} color="white" />
+                            <Text
+                                style={{
+                                    color: 'white',
+                                    paddingLeft: calcWidth(2),
+                                }}
+                            >
+                                {transactionData.group?.name || 'Add Group'}
+                            </Text>
+                        </View>
+                        <AntDesign name="right" size={calcWidth(5)} color="white" />
                     </Pressable>
                 </View>
             )}
@@ -241,12 +261,11 @@ function TransactionFormScreen({ navigation }) {
                     <Pressable
                         style={{
                             backgroundColor: '#302B49',
-                            padding: calcWidth(5),
-                            borderRadius: 10,
+                            padding: calcWidth(4),
+                            borderRadius: 8,
                             flexDirection: 'row',
-                            alignItems: 'center',
                             justifyContent: 'space-evenly',
-                            marginTop: calcHeight(5),
+                            marginTop: calcHeight(2),
                             width: calcWidth(40),
                         }}
                         onPress={() => {
@@ -258,18 +277,18 @@ function TransactionFormScreen({ navigation }) {
                                 color: 'white',
                             }}
                         >
-                            Paid By {transactionData.paidBy.name}
+                            Paid By {transactionData.paidBy?.name}
                         </Text>
                     </Pressable>
                     <Pressable
                         style={{
                             backgroundColor: '#302B49',
-                            padding: calcWidth(5),
-                            borderRadius: 10,
+                            padding: calcWidth(4),
+                            borderRadius: 8,
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'space-evenly',
-                            marginTop: calcHeight(5),
+                            marginTop: calcHeight(2),
                             width: calcWidth(40),
                         }}
                         onPress={() => {
@@ -291,7 +310,14 @@ function TransactionFormScreen({ navigation }) {
                     alignItems: 'center',
                 }}
             >
-                <Button onPress={handleSubmit} title="Submit" />
+                <Button
+                    styleOverwrite={{
+                        width: calcWidth(90),
+                        marginTop: calcHeight(2),
+                    }}
+                    onPress={handleSubmit}
+                    title="Submit"
+                />
             </View>
         </ScrollView>
     );
@@ -300,20 +326,18 @@ function TransactionFormScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: calcWidth(5),
+        paddingHorizontal: calcWidth(5),
         backgroundColor: COLOR.APP_BACKGROUND,
-        alignContent: 'center',
     },
     rowCentered: {
         flexDirection: 'row',
         justifyContent: 'center',
-        alignContent: 'center',
     },
     amount: {
-        alignItems: 'center',
-        alignContent: 'center',
         color: COLOR.TEXT,
         fontSize: getFontSizeByWindowWidth(50),
+        lineHeight: calcHeight(8),
+        fontWeight: 'bold',
     },
     description: {
         flex: 1,
@@ -329,19 +353,19 @@ const styles = StyleSheet.create({
     },
     categoryItem: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        alignContent: 'center',
         alignItems: 'center',
         paddingHorizontal: calcWidth(3),
+        paddingVertical: calcHeight(0.5),
     },
     categoryText: {
         color: COLOR.TEXT,
-        fontSize: getFontSizeByWindowWidth(8),
-        paddingLeft: calcWidth(1),
+        fontSize: getFontSizeByWindowWidth(12),
+        paddingHorizontal: calcWidth(1),
     },
     selectedCategory: {
-        backgroundColor: '#ddd', // Highlight color for selected category,
+        backgroundColor: '#4D426C', // Highlight color for selected category,
         borderRadius: 10,
+        color: COLOR.TEXT,
     },
 });
 

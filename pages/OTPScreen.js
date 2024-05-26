@@ -1,51 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    StyleSheet,
-    SafeAreaView,
-    Image,
-    Pressable,
-    TouchableOpacity,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, SafeAreaView, Image, Pressable, TouchableOpacity } from 'react-native';
 import COLOR from '../constants/Colors';
 import Button from '../components/Button';
 import { calcHeight, calcWidth, getFontSizeByWindowWidth } from '../helper/res';
 import OTPImage from '../assets/OTPImage.png';
-import { useAuth } from '../context/AuthContext';
 import Loader from '../components/Loader';
 import OTPFilled from '../assets/OTPFilled.png';
-import sendOTP from '../helper/sendOTP';
+import { useOtp } from '../context/OtpContext';
+
 const OTPScreen = ({
     navigation,
     route: {
-        params: { countryCode, phoneNumber },
+        params: { phoneNumber },
     },
 }) => {
     const [otp, setOtp] = useState('');
     const inputRef = useRef();
     const [error, setError] = useState(false);
     const [loading, setLoading] = useState(false);
-    const { verifyOTP } = useAuth();
-    useEffect(() => {
-        inputRef.current.focus();
-    }, []);
+
+    const { verifyOtp, loginWithPhoneNumber } = useOtp();
 
     const handleOTPChange = (text) => {
         setError(false);
         setOtp(text);
     };
-    async function handleVerifyOTP() {
+
+    const handleVerifyOTP = () => {
         if (otp.length < 6) {
             setError(true);
             return;
         }
-        setLoading(true);
-        await verifyOTP(phoneNumber, countryCode, otp);
-        setLoading(false);
-        setOtp('');
-        setError(true);
+        verifyOtp(otp);
     }
     const otpBoxes = Array.from({ length: 6 }).map((_, index) => {
         const digit = otp[index] || '';
@@ -72,16 +58,10 @@ const OTPScreen = ({
         <SafeAreaView style={styles.container}>
             <View style={styles.innerContainer}>
                 <View style={styles.header}>
-                    <Image
-                        source={otp.length != 6 ? OTPImage : OTPFilled}
-                        style={styles.image}
-                        resizeMode="contain"
-                    />
+                    <Image source={otp.length != 6 ? OTPImage : OTPFilled} style={styles.image} resizeMode="contain" />
                     <View style={styles.textContainer}>
                         <Text style={styles.headerText}>OTP Verification</Text>
-                        <Text style={styles.promptText}>
-                            Enter the code sent to +1 999 888...
-                        </Text>
+                        <Text style={styles.promptText}>Enter the code sent to {phoneNumber}</Text>
                     </View>
                 </View>
                 <View
@@ -101,13 +81,9 @@ const OTPScreen = ({
                         autoFocus
                     />
                     <View style={{ flexDirection: 'row' }}>
-                        <Text style={styles.resendText}>
-                            Didn't receive the code?{' '}
-                        </Text>
+                        <Text style={styles.resendText}>Didn't receive the code? </Text>
                         <TouchableOpacity
-                            onPress={() => {
-                                sendOTP('+91' + phoneNumber);
-                            }}
+                            onPress={() => loginWithPhoneNumber(phoneNumber)}
                         >
                             <Text
                                 style={{

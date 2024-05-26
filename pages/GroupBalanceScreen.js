@@ -1,23 +1,13 @@
 import React from 'react';
-import {
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    View,
-    Pressable,
-    FlatList,
-    Image,
-} from 'react-native';
+import { Text, StyleSheet, SafeAreaView, View, Pressable, FlatList, Image } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import GroupIcon from '../components/GroupIcon';
 import COLOR from '../constants/Colors';
 import { calcHeight, calcWidth, getFontSizeByWindowWidth } from '../helper/res';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../stores/auth';
 import sliceText from '../helper/sliceText';
-import LoginImage from '../assets/Login.png';
 import Cross from '../assets/icons/cross.png';
-import getName from '../helper/editNamesAsync';
-
+import UserAvatar from '../components/UserAvatar';
 function GroupBalanceScreen({ navigation, route }) {
     const { group } = route.params;
     const { user } = useAuth();
@@ -40,34 +30,17 @@ function GroupBalanceScreen({ navigation, route }) {
         return (
             <Pressable onPress={handlePress} style={styles.listItem}>
                 <View style={styles.listItemLeft}>
-                    <GroupIcon image={group.icon || LoginImage} />
-                    <Text style={styles.itemName}>
-                        {sliceText(item.name, 10)}
-                    </Text>
+                    <UserAvatar user={item} />
+                    <Text style={styles.itemName}>{sliceText(item.name, 10)}</Text>
                 </View>
                 <View style={styles.listItemRight}>
                     <View style={styles.amountView}>
-                        <Text
-                            style={[styles.amountText, { color: balanceColor }]}
-                        >
-                            ₹{item.amount}
-                        </Text>
-                        <Text
-                            style={[
-                                styles.subAmountText,
-                                { color: balanceColor },
-                            ]}
-                        >
-                            {group.totalBalance < 0
-                                ? 'you owe'
-                                : 'you get back'}
+                        <Text style={[styles.amountText, { color: balanceColor }]}>₹{item.amount}</Text>
+                        <Text style={[styles.subAmountText, { color: balanceColor }]}>
+                            {group.totalBalance < 0 ? 'you owe' : 'you get back'}
                         </Text>
                     </View>
-                    <Ionicons
-                        name="chevron-forward"
-                        size={calcHeight(2)}
-                        color="white"
-                    />
+                    <Ionicons name="chevron-forward" size={calcHeight(2)} color="white" />
                 </View>
             </Pressable>
         );
@@ -79,8 +52,8 @@ function GroupBalanceScreen({ navigation, route }) {
                 <Pressable onPress={() => navigation.goBack()}>
                     <Image style={styles.crossIcon} source={Cross} />
                 </Pressable>
-                <GroupIcon image={group.icon || LoginImage} />
-                <Text style={styles.groupName}>{group.name}</Text>
+                <GroupIcon groupId={group._id} />
+                <Text style={styles.groupName}>{sliceText(group.name, 25)}</Text>
             </View>
             <View style={styles.balanceInfo}>
                 <View style={styles.balanceInfoLeft}>
@@ -88,36 +61,26 @@ function GroupBalanceScreen({ navigation, route }) {
                         style={[
                             styles.indicator,
                             {
-                                backgroundColor:
-                                    group.totalBalance > 0 ? '#00C83D' : 'red',
+                                backgroundColor: group.totalBalance > 0 ? '#00C83D' : 'red',
                             },
                         ]}
                     />
                     <View style={styles.balanceTextContainer}>
-                        <Text style={styles.balanceText}>
-                            Total Split Balance
-                        </Text>
-                        <Text style={styles.subBalanceText}>
-                            {group.totalBalance < 0
-                                ? 'you owe'
-                                : 'you get back'}
-                        </Text>
+                        <Text style={styles.balanceText}>Total Split Balance</Text>
+                        <Text style={styles.subBalanceText}>{group.totalBalance < 0 ? 'you owe' : 'you get back'}</Text>
                     </View>
                 </View>
                 <View style={styles.balanceAmountContainer}>
-                    <Text style={styles.balanceAmount}>
-                        ₹{group.totalBalance}
-                    </Text>
-                    <View style={styles.arrowIconContainer}>
-                        <Feather
-                            name={
-                                group.totalBalance > 0
-                                    ? 'arrow-up-right'
-                                    : 'arrow-down-left'
-                            }
-                            size={calcWidth(2)}
-                            color="white"
-                        />
+                    <Text style={styles.balanceAmount}>₹{Math.abs(group.totalBalance)}</Text>
+                    <View
+                        style={[
+                            styles.arrowIconContainer,
+                            {
+                                backgroundColor: group.totalBalance > 0 ? '#00C83D' : 'red',
+                            },
+                        ]}
+                    >
+                        <Feather name={group.totalBalance > 0 ? 'arrow-up-right' : 'arrow-down-left'} size={calcWidth(2)} color="white" />
                     </View>
                 </View>
             </View>
@@ -160,7 +123,8 @@ const styles = StyleSheet.create({
     listItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        margin: calcHeight(2),
+        marginHorizontal: calcHeight(2),
+        marginVertical: calcHeight(0.5),
         padding: calcHeight(2),
         alignItems: 'center',
         backgroundColor: 'rgba(52, 47, 79, 0.53)',
@@ -180,7 +144,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: calcWidth(4),
+        padding: calcWidth(5),
         gap: calcWidth(5),
         borderBottomRightRadius: calcWidth(2),
         borderBottomLeftRadius: calcWidth(2),
@@ -232,7 +196,7 @@ const styles = StyleSheet.create({
     groupName: {
         color: 'white',
         fontWeight: 'bold',
-        fontSize: getFontSizeByWindowWidth(13),
+        fontSize: getFontSizeByWindowWidth(15),
     },
     balanceInfo: {
         flexDirection: 'row',

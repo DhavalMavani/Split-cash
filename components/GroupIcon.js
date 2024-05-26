@@ -1,34 +1,32 @@
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Image } from 'react-native';
 import { calcHeight, calcWidth } from '../helper/res';
-import LoginIcon from '../assets/Login.png';
+import generateRandomNumberBasedOnUUIDAndRange from '../helper/generateRandomNumberBasedOnUUIDAndRange';
+import groupIcons from '../constants/groupIcons';
 import COLOR from '../constants/Colors';
-function GroupIcon({ image, backgroundColor, size = {} }) {
-    return (
+
+const defaultSize = 5;
+
+function GroupIcon({ groupId, size = defaultSize }) {
+    return groupId ? (
+        <Image
+            source={groupIcons[generateRandomNumberBasedOnUUIDAndRange(groupId, 0, 39)]}
+            style={{
+                height: calcHeight(size),
+                width: calcHeight(size),
+                borderRadius: calcHeight(size),
+            }}
+        />
+    ) : (
         <View
-            style={[
-                styles.imageContainer,
-                backgroundColor ? { backgroundColor } : {},
-            ]}
-        >
-            <Image
-                source={image || LoginIcon}
-                style={{ ...styles.image, ...size }}
-                resizeMode="contain"
-            />
-        </View>
+            style={{
+                height: calcHeight(size),
+                width: calcHeight(size),
+                borderRadius: calcHeight(size),
+                backgroundColor: COLOR.SKELETON_MASK_COLOR,
+            }}
+        ></View>
     );
 }
 
 export default GroupIcon;
-
-const styles = StyleSheet.create({
-    image: {
-        height: calcHeight(3),
-        width: calcHeight(3),
-    },
-    imageContainer: {
-        padding: calcWidth(2),
-        borderRadius: calcHeight(10),
-        backgroundColor: COLOR.BUTTON,
-    },
-});

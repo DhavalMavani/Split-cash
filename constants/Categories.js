@@ -1,44 +1,50 @@
-import {
-    MaterialIcons,
-    FontAwesome5,
-    Ionicons,
-    Entypo,
-    AntDesign,
-} from '@expo/vector-icons';
-import { calcWidth } from '../helper/res';
+import { MaterialIcons, FontAwesome5, Ionicons, Entypo, AntDesign } from '@expo/vector-icons';
+import { Image } from 'react-native';
+import { calcWidth, getFontSizeByWindowWidth } from '../helper/res';
+import GeneralIcon from '../assets/icons/categoryIcon/general.png';
+import TransportIcon from '../assets/icons/categoryIcon/transport.png';
+import ShoppingIcon from '../assets/icons/categoryIcon/shopping.png';
+import DinningIcon from '../assets/icons/categoryIcon/dinning.png';
+import UtilitiesIcon from '../assets/icons/categoryIcon/utilities.png';
+import GroceriesIcon from '../assets/icons/categoryIcon/groceries.png';
+const size = calcWidth(3);
 
-const size = calcWidth(5);
+const createIcon = (source) => (
+    <Image
+        source={source}
+        style={{
+            height: size,
+            width: size,
+            resizeMode: 'contain',
+        }}
+    />
+);
+
 const categories = [
     {
+        name: 'General',
+        icon: createIcon(GeneralIcon),
+    }, // Blue Grey
+    {
         name: 'Groceries',
-        icon: (
-            <MaterialIcons
-                name="local-grocery-store"
-                size={size}
-                color="#4CAF50"
-            />
-        ),
+        icon: createIcon(GroceriesIcon),
     },
     {
         name: 'Transport',
-        icon: <FontAwesome5 name="bus-alt" size={size} color="#2196F3" />,
+        icon: createIcon(TransportIcon),
     }, // Blue
     {
         name: 'Utilities',
-        icon: <Ionicons name="water" size={size} color="#FF9800" />,
+        icon: createIcon(UtilitiesIcon),
     }, // Orange
     {
         name: 'Dining',
-        icon: <Ionicons name="restaurant" size={size} color="#E91E63" />,
+        icon: createIcon(DinningIcon),
     }, // Pink
     {
         name: 'Shopping',
-        icon: <Entypo name="shop" size={size} color="#9C27B0" />,
+        icon: createIcon(ShoppingIcon),
     }, // Purple
-    {
-        name: 'General',
-        icon: <AntDesign name="ellipsis1" size={size} color="#607D8B" />,
-    }, // Blue Grey
 ];
 
 export function getCategoryIcon(name) {

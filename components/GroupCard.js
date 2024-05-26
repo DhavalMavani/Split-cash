@@ -6,35 +6,52 @@ import LoginImage from '../assets/Login.png';
 import { useNavigation } from '@react-navigation/native';
 import PAGES from '../constants/pages';
 import GroupIcon from './GroupIcon';
-function getMembersString(members) {
-    let names = [];
-
-    for (let i = 0; i < members.length; i++) {
-        if (members[i].hasOwnProperty('name') && members[i].name) {
-            // Split the name string by spaces and take the first part
-            let namePart = members[i].name.split(' ')[0];
-            names.push(namePart);
-        }
-    }
-
-    return names.join(', ');
-}
-
-function GroupCard({ group }) {
+import { useGroup } from '../context/GroupContext';
+import getMembersString from '../utility/getMembersString';
+import sliceText from '../helper/sliceText';
+function GroupCard({ group, loading }) {
+    if (loading)
+        return (
+            <View style={styles.container}>
+                <GroupIcon />
+                <View style={styles.textContainer}>
+                    <Text
+                        style={[
+                            styles.nameText,
+                            {
+                                backgroundColor: COLOR.SKELETON_MASK_COLOR,
+                                width: calcWidth(30),
+                                borderRadius: 10,
+                            },
+                        ]}
+                    ></Text>
+                    <Text
+                        style={[
+                            styles.memberText,
+                            {
+                                backgroundColor: COLOR.SKELETON_MASK_COLOR,
+                                width: calcWidth(50),
+                                borderRadius: 10,
+                            },
+                        ]}
+                    ></Text>
+                </View>
+            </View>
+        );
     const navigation = useNavigation();
+    const { setGroup } = useGroup();
     return (
         <Pressable
             onPress={() => {
-                navigation.navigate(PAGES.GROUP, { group });
+                setGroup(group);
+                navigation.navigate(PAGES.GROUP);
             }}
             style={styles.container}
         >
-            <GroupIcon image={LoginImage} />
+            <GroupIcon groupId={group._id} />
             <View style={styles.textContainer}>
-                <Text style={styles.nameText}>{group.name}</Text>
-                <Text style={styles.memberText}>
-                    {getMembersString(group.members)}
-                </Text>
+                <Text style={styles.nameText}>{sliceText(group.name, 20)}</Text>
+                <Text style={styles.memberText}>{getMembersString(group.members, 30)}</Text>
             </View>
         </Pressable>
     );

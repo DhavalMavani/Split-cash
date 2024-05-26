@@ -1,67 +1,70 @@
-import React, { useCallback, useState } from 'react';
-import {
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    FlatList,
-    View,
-    TextInput,
-} from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Text, StyleSheet, SafeAreaView, FlatList, View, TextInput, Keyboard } from 'react-native';
 import Loader from '../components/Loader';
 import apiHelper from '../helper/apiHelper';
 import PAGES from '../constants/pages';
 import FabIcon from '../components/FabIcon';
 import { useFocusEffect } from '@react-navigation/native';
-import copyToClipBoard from '../helper/copyToClipBoard';
-import { Feather } from '@expo/vector-icons';
 import EmptyScreen from '../components/EmptyScreen';
 import COLOR from '../constants/Colors';
 import { calcHeight, calcWidth, getFontSizeByWindowWidth } from '../helper/res';
-import { useRef } from 'react';
 import GroupCard from '../components/GroupCard';
 import NoGroupsImage from '../assets/NoGroups.png';
-import { useEffect } from 'react';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
 import Search from '../components/Search';
-import tabBarStyle from '../constants/tabBarStyle';
-import editNamesAsync from '../helper/editNamesAsync';
-import { useAuth } from '../context/AuthContext';
+import { useGroupList } from '../stores/groupList';
+import { useAuth } from '../stores/auth';
 function GroupListScreen({ navigation }) {
-    const [groups, setGroups] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState('');
+    const { groups, loading, search, setSearch, fetchData } = useGroupList();
     const { user } = useAuth();
 
     useFocusEffect(
         useCallback(() => {
-            (async () => {
-                setLoading(true);
-                const { data } = await apiHelper('/group');
-                for (let group of data)
-                    group.members = await editNamesAsync(
-                        group.members,
-                        user._id,
-                    );
-
-                setGroups(data);
-                setLoading(false);
-            })();
+            fetchData(user);
         }, []),
     );
 
-    const filterGroups = () =>
-        search === ''
-            ? groups
-            : groups.filter((group) =>
-                  group.name.toLowerCase().includes(search.toLowerCase()),
-              );
+    useEffect(() => {
+        fetchData(user);
+    }, []);
 
-    return loading ? (
-        <Loader />
-    ) : (
+    const filterGroups = () => (search === '' ? groups : groups.filter((group) => group.name.toLowerCase().includes(search.toLowerCase())));
+    if (loading)
+        return (
+            <SafeAreaView style={styles.container}>
+                <Text style={styles.header}>Groups</Text>
+                <>
+                    <View
+                        style={{
+                            alignItems: 'center',
+                            marginTop: calcHeight(2),
+                            marginBottom: calcHeight(4),
+                        }}
+                    >
+                        <Search search={search} setSearch={setSearch} loading />
+                    </View>
+                    <FlatList
+                        data={[{}, {}, {}]}
+                        renderItem={({ item }) => <GroupCard group={item} loading />}
+                        onScroll={() => {
+                            Keyboard.dismiss();
+                        }}
+                    />
+                </>
+                <FabIcon
+                    onPress={() => {
+                        {
+                            navigation.navigate(PAGES.CREATE_GROUP);
+                        }
+                    }}
+                    loading
+                />
+            </SafeAreaView>
+        );
+
+    return (
         <SafeAreaView style={styles.container}>
             <Text style={styles.header}>Groups</Text>
-            {groups.length == 0 ? (
+            {groups && groups.length == 0 ? (
                 <EmptyScreen
                     onPress={() => {
                         navigation.navigate(PAGES.CREATE_GROUP);
@@ -84,10 +87,13 @@ function GroupListScreen({ navigation }) {
                         data={filterGroups(groups)}
                         renderItem={({ item }) => <GroupCard group={item} />}
                         keyExtractor={(item) => item.id} // Replace 'item.id' with the appropriate key property from your group objects
+                        onScroll={() => {
+                            Keyboard.dismiss();
+                        }}
                     />
                 </>
             )}
-            {groups.length != 0 && (
+            {groups && groups.length != 0 && (
                 <FabIcon
                     onPress={() => {
                         {

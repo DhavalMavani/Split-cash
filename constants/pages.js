@@ -7,7 +7,6 @@ const PAGES = {
     ADD_TRANSACTION: 'Add Transaction',
     ADD_GROUP: 'Add Group',
     SETTINGS: 'Settings',
-    JOIN_GROUP: 'Join group',
     ONBOARDING: 'Onboarding',
     OTP: 'OTP',
     CREATE_GROUP: 'Create Group',
@@ -24,6 +23,12 @@ const PAGES = {
     SCANNER: 'Scanner',
     UPI_APP_SELECTION: 'UPI App Selection',
     TAB_NAVIGATOR: 'Tab Navigation',
+    GROUP_SETTINGS: 'Group Settings',
+    FAQ: 'FAQ',
+    ABOUT: 'About',
+    INVITATION_LANDING_PAGE: 'Invitation Landing Page',
+    ADD_PEOPLE: 'Add People',
+    EDIT_PHONE_NUMBER: 'Edit Phone Number',
 };
 
 export default PAGES;

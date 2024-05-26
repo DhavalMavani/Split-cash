@@ -7,8 +7,47 @@ import LoginImage from '../assets/Login.png';
 import { useNavigation } from '@react-navigation/native';
 import PAGES from '../constants/pages';
 import GroupIcon from './GroupIcon';
-
-function GroupBalanceCard({ group }) {
+import sliceText from '../helper/sliceText';
+function GroupBalanceCard({ group, loading }) {
+    if (loading)
+        return (
+            <Pressable
+                onPress={() => {
+                    navigation.navigate(PAGES.GROUP_BALANCE, { group });
+                }}
+                style={styles.container}
+            >
+                <View
+                    style={{
+                        flexDirection: 'row',
+                    }}
+                >
+                    <GroupIcon />
+                    <View style={styles.textContainer}>
+                        <Text
+                            style={[
+                                styles.nameText,
+                                {
+                                    backgroundColor: COLOR.SKELETON_MASK_COLOR,
+                                    width: calcWidth(30),
+                                    borderRadius: 10,
+                                },
+                            ]}
+                        ></Text>
+                        <Text
+                            style={[
+                                styles.memberText,
+                                {
+                                    backgroundColor: COLOR.SKELETON_MASK_COLOR,
+                                    width: calcWidth(50),
+                                    borderRadius: 10,
+                                },
+                            ]}
+                        ></Text>
+                    </View>
+                </View>
+            </Pressable>
+        );
     const navigation = useNavigation();
     return (
         <Pressable
@@ -22,9 +61,9 @@ function GroupBalanceCard({ group }) {
                     flexDirection: 'row',
                 }}
             >
-                <GroupIcon image={LoginImage} />
+                <GroupIcon groupId={group._id} />
                 <View style={styles.textContainer}>
-                    <Text style={styles.nameText}>{group.name}</Text>
+                    <Text style={styles.nameText}>{sliceText(group.name, 20)}</Text>
                     <Text style={styles.memberText}>
                         {group.totalBalance < 0
                             ? `${group.lenderCount} participants owe you money`

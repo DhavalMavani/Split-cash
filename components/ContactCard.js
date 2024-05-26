@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, Image } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'; // Make sure to install expo-icons or another icon library
+import { Ionicons, MaterialCommunityIcons, AntDesign } from '@expo/vector-icons'; // Make sure to install expo-icons or another icon library
 
 // Helper functions for responsive layout
 import { calcHeight, calcWidth, getFontSizeByWindowWidth } from '../helper/res';
@@ -12,9 +12,7 @@ function ContactCard({ selected, color, name, phoneNumber, imageURI }) {
             {imageURI ? (
                 <Image source={{ uri: imageURI }} style={styles.profileImage} />
             ) : (
-                <View
-                    style={[styles.placeHolderView, { backgroundColor: color }]}
-                >
+                <View style={[styles.placeHolderView, { backgroundColor: color }]}>
                     <Text>{name.charAt(0).toUpperCase()}</Text>
                 </View>
             )}
@@ -24,17 +22,9 @@ function ContactCard({ selected, color, name, phoneNumber, imageURI }) {
             </View>
             <View style={styles.selectorContainer}>
                 {selected ? (
-                    <Ionicons
-                        name="md-checkmark-circle"
-                        size={calcWidth(5)}
-                        color={COLOR.BUTTON}
-                    />
+                    <AntDesign name="checkcircle" size={calcWidth(5)} color={COLOR.BUTTON} />
                 ) : (
-                    <MaterialCommunityIcons
-                        name="checkbox-blank-circle-outline"
-                        size={calcWidth(5)}
-                        color="white"
-                    />
+                    <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={calcWidth(5)} color="white" />
                 )}
             </View>
         </View>

@@ -1,23 +1,19 @@
 import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-import { AuthProvider } from './context/AuthContext';
-import { TransactionProvider } from './context/TransactionContext';
 import RootNavigator from './navigator/RootNavigator';
+import { KeyboardAvoidingView, Platform } from 'react-native';
+import FlashMessage from 'react-native-flash-message';
+
 function App() {
     return (
-        <SafeAreaProvider
-            style={{
-                paddingTop: Constants.statusBarHeight,
-            }}
-        >
+        <SafeAreaProvider>
             <StatusBar style="auto" />
-            <AuthProvider>
-                <TransactionProvider>
-                    <RootNavigator />
-                </TransactionProvider>
-            </AuthProvider>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} enabled
+            keyboardVerticalOffset={-900}>
+                <RootNavigator />
+            </KeyboardAvoidingView>
+            <FlashMessage position="top" duration={2000} />
         </SafeAreaProvider>
     );
 }

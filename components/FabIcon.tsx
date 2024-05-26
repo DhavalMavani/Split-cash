@@ -1,9 +1,30 @@
+import React from 'react';
 import { FAB } from 'react-native-paper';
 import { StyleSheet, View } from 'react-native';
 import { calcHeight, calcWidth } from '../helper/res';
 import COLOR from '../constants/Colors';
 import plusIconStyle from '../constants/plusIconStyle';
-function FabIcon({ onPress }) {
+
+interface FabIconProps {
+    onPress: () => void;
+    loading: boolean;
+}
+
+const FabIcon: React.FC<FabIconProps> = ({ onPress, loading }) => {
+    if (loading) {
+        return (
+            <View style={styles.fabContainer}>
+                <FAB
+                    style={[
+                        styles.fab,
+                        { backgroundColor: COLOR.SKELETON_MASK_COLOR },
+                    ]}
+                    customSize={calcHeight(9)}
+                    color="white"
+                />
+            </View>
+        );
+    }
     return (
         <View style={styles.fabContainer}>
             <FAB

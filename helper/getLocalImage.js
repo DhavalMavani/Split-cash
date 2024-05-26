@@ -1,13 +1,22 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { Alert } from 'react-native';
+import openSettings from './openSettings';
 
 async function getLocalImage() {
-    const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-        console.log('Permission to access media library not granted.');
-        throw new Error('Permission not granted');
+        Alert.alert('Permission Required', 'We need permission to access your photos to get the QR code.', [
+            {
+                text: 'Cancel',
+                style: 'cancel',
+            },
+            {
+                text: 'Open Settings',
+                onPress: openSettings,
+            },
+        ]);
+        return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync();

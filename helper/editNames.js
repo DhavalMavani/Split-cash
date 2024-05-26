@@ -1,4 +1,3 @@
-import * as Contacts from 'expo-contacts';
 import sliceText from './sliceText';
 
 function editNames(usersArray, currentUserId, contacts) {
@@ -18,7 +17,7 @@ function editNames(usersArray, currentUserId, contacts) {
             } else if (user.name) {
                 user.name = sliceText(user.name);
             } else {
-                user.name = user.phoneNumber || 'Unknown';
+                user.name = 'Unknown';
             }
         }
 

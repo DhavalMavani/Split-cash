@@ -1,52 +1,30 @@
 import axios from 'axios';
 import { API_URL } from '@env';
-import { TOKEN } from '../constants/string';
-import { getLocalStoreData, setLocalStoreData } from './localStorage';
-import getNetworkStateAsync from './getNetworkStateAsync';
+import { getToken } from '../stores/auth';
 
 const config = {
     baseURL: API_URL,
-    timeout: 10000,
+    timeout: 10000, // env value is a string so we need to convert it to a number
     headers: {
         'Content-Type': 'application/json',
     },
 };
-
+console.log('API_URL', API_URL);
 const request = axios.create(config);
-
 request.interceptors.request.use(
     async (reqConfig) => {
-        const isOnline = await getNetworkStateAsync();
-
-        if (!isOnline) {
-            // Get data from local storage if offline
-            const localData = await getLocalStoreData(reqConfig.url);
-            if (localData) {
-                return Promise.resolve({ data: localData, fromCache: true });
-            }
-        }
-
-        // Online scenario: Add token to header
-        const token = await getLocalStoreData(TOKEN);
+        const reqHeader = { ...reqConfig };
+        let token;
+        if (getToken) token = getToken();
         if (token) {
-            reqConfig.headers = {
+            reqHeader.headers = {
                 ...reqConfig.headers,
                 Authorization: `Bearer ${token}`,
             };
         }
 
-        return reqConfig;
+        return reqHeader;
     },
     (error) => Promise.reject(error),
 );
-
-request.interceptors.response.use(
-    async (response) => {
-        // Store response data in local storage
-        setLocalStoreData(response.config.url, response.data);
-        return response;
-    },
-    (error) => Promise.reject(error),
-);
-
 export default request;

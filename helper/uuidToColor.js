@@ -13,20 +13,19 @@ function colorDifference(color1, color2) {
 function uuidToColor(uuid, baseColor) {
     let hash = 0;
     for (let i = 0; i < uuid.length; i++) {
-        hash = ((hash << 5) - hash) + uuid.charCodeAt(i);
-        hash &= hash; 
+        hash = (hash << 5) - hash + uuid.charCodeAt(i);
+        hash &= hash;
     }
 
-    let color = ((hash & 0xFFFFFF) + 0x1000000).toString(16).substring(1);
+    let color = ((hash & 0xffffff) + 0x1000000).toString(16).substring(1);
 
-
-    while (colorDifference('#' + color, baseColor) < 100) { // Threshold can be adjusted
-        hash = (hash + 1) & 0xFFFFFF;
-        color = ((hash & 0xFFFFFF) + 0x1000000).toString(16).substring(1);
+    while (colorDifference('#' + color, baseColor) < 100) {
+        // Threshold can be adjusted
+        hash = (hash + 1) & 0xffffff;
+        color = ((hash & 0xffffff) + 0x1000000).toString(16).substring(1);
     }
 
     return '#' + color;
 }
-
 
 export default uuidToColor;

@@ -6,16 +6,41 @@
     "build": {
         "development": {
             "developmentClient": true,
-            "distribution": "internal"
+            "distribution": "internal",
+            "channel": "development",
+            "env": {
+                "ENV": "development",
+                "API_URL": "https://dev-api.getamigo.today",
+                "DEEP_LINK_URL": "https://get-amigo.github.io/Split-IT-Home/#/"
+            }
         },
         "preview": {
-            "distribution": "internal"
+            "distribution": "internal",
+            "channel": "preview"
+        },
+        "staging": {
+            "releaseChannel": "staging",
+            "distribution": "internal",
+            "android": {
+                "buildType": "apk"
+            },
+            "ios": {
+                "cocoapods": "1.11.2",
+                "enterpriseProvisioning": "adhoc"
+            },
+            "env": {
+                "ENV": "staging",
+                "API_URL": "https://staging-api.getamigo.today",
+                "DEEP_LINK_URL": "https://get-amigo.github.io/Split-IT-Home/#/"
+            }
         },
         "production": {
             "env": {
                 "ENV": "production",
-                "API_URL": "http://34.193.8.8:3000"
-            }
+                "API_URL": "https://api.getamigo.today",
+                "DEEP_LINK_URL": "https://get-amigo.github.io/Split-IT-Home/#/"
+            },
+            "channel": "production"
         }
     },
     "submit": {

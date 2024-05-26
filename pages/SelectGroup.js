@@ -1,16 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import {
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    Pressable,
-    View,
-    TextInput,
-    FlatList,
-} from 'react-native';
-import Loader from '../components/Loader';
-import apiHelper from '../helper/apiHelper';
+import { StyleSheet, SafeAreaView, View, FlatList } from 'react-native';
 import PAGES from '../constants/pages';
 import { useFocusEffect } from '@react-navigation/native';
 import COLOR from '../constants/Colors';
@@ -19,46 +8,22 @@ import Search from '../components/Search';
 import GroupSelectCard from '../components/GroupSelectCard';
 import { useTransaction } from '../context/TransactionContext';
 import GroupIcon from '../components/GroupIcon';
-import CreateGroupIcon from '../assets/icons/createGroup.png';
-import getNamesFromContacts from '../helper/getNamesFromContacts';
-import { useAuth } from '../context/AuthContext';
-import editNames from '../helper/editNames';
-
+import { Octicons } from '@expo/vector-icons';
+import { useGroupList } from '../stores/groupList';
 function GroupListScreen({ navigation }) {
-    const [groups, setGroups] = useState([]);
-    const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
     const { setTransactionData } = useTransaction();
-    const { user } = useAuth();
+    const { groups, fetchData } = useGroupList();
 
-    const filterGroups = () =>
-        search === ''
-            ? groups
-            : groups.filter((group) =>
-                  group.name.toLowerCase().includes(search.toLowerCase()),
-              );
+    const filterGroups = () => (search === '' ? groups : groups.filter((group) => group.name.toLowerCase().includes(search.toLowerCase())));
 
     useFocusEffect(
         useCallback(() => {
-            (async () => {
-                setLoading(true);
-                const { data } = await apiHelper('/group');
-                const contacts = await getNamesFromContacts();
-                for (let group of data)
-                    group.members = editNames(
-                        group.members,
-                        user._id,
-                        contacts,
-                    );
-                setGroups(data);
-                setLoading(false);
-            })();
+            fetchData();
         }, []),
     );
 
-    return loading ? (
-        <Loader />
-    ) : (
+    return (
         <SafeAreaView style={styles.container}>
             <View
                 style={{
@@ -73,10 +38,18 @@ function GroupListScreen({ navigation }) {
                     <GroupSelectCard
                         name={'Create new group'}
                         image={
-                            <GroupIcon
-                                backgroundColor="white"
-                                image={CreateGroupIcon}
-                            />
+                            <View
+                                style={{
+                                    backgroundColor: 'white',
+                                    height: calcHeight(5),
+                                    width: calcHeight(5),
+                                    borderRadius: calcHeight(5),
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                <Octicons name="people" size={calcHeight(3)} color="black" />
+                            </View>
                         }
                         onPress={() => {
                             navigation.navigate(PAGES.CREATE_GROUP);
@@ -90,6 +63,7 @@ function GroupListScreen({ navigation }) {
                             setTransactionData((prev) => ({ ...prev, group }));
                             navigation.navigate(PAGES.ADD_TRANSACTION);
                         }}
+                        image={<GroupIcon groupId={group._id} />}
                     />
                 )}
             />

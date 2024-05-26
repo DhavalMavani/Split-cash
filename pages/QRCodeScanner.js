@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Linking, Button, Image } from 'react-native';
+import { View, StyleSheet, Linking, Button, Image, Pressable, Text, Alert } from 'react-native';
 import * as BarCodeScanner from 'expo-barcode-scanner';
 import CameraScanner from '../components/CameraScanner';
 import { useTransaction } from '../context/TransactionContext';
 import URL from 'url-parse';
 import PAGES from '../constants/pages';
+import COLOR from '../constants/Colors';
+import openSettings from '../helper/openSettings';
 const QRCodeScanner = ({ navigation }) => {
     const [hasPermission, setHasPermission] = useState(null);
     const [isLit, setIsLit] = useState(false);
     const { setUpiParams } = useTransaction();
+    const [barcodeScanEnabled, setBarcodeScanEnabled] = useState(true);
     useEffect(() => {
         const checkCameraPermission = async () => {
             const { status } = await BarCodeScanner.getPermissionsAsync();
@@ -24,8 +27,7 @@ const QRCodeScanner = ({ navigation }) => {
         const unsubscribe = navigation.addListener('focus', () => {
             setHasPermission(false);
             (async () => {
-                const { status } =
-                    await BarCodeScanner.requestPermissionsAsync();
+                const { status } = await BarCodeScanner.requestPermissionsAsync();
                 setHasPermission(status === 'granted');
             })();
         });
@@ -43,14 +45,13 @@ const QRCodeScanner = ({ navigation }) => {
         const params = {};
         for (let i = 0; i < pairs.length; i++) {
             const pair = pairs[i].split('=');
-            params[decodeURIComponent(pair[0])] = decodeURIComponent(
-                pair[1] || '',
-            );
+            params[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || '');
         }
         return params;
     };
 
     const handleBarCodeScanned = ({ data }) => {
+        if (!barcodeScanEnabled) return;
         try {
             const url = new URL(data);
 
@@ -69,7 +70,13 @@ const QRCodeScanner = ({ navigation }) => {
                 setUpiParams(extractedParams); // Ensure setUpiParams is defined and available
                 navigation.navigate(PAGES.ADD_TRANSACTION); // Ensure navigation and PAGES are defined and available
             } else {
-                alert('Not a valid UPI URL');
+                setBarcodeScanEnabled(false);
+                Alert.alert('Not a valid UPI URL', null, [
+                    {
+                        text: 'OK',
+                        onPress: () => setBarcodeScanEnabled(true),
+                    },
+                ]);
                 return;
             }
         } catch (error) {
@@ -81,16 +88,17 @@ const QRCodeScanner = ({ navigation }) => {
     return (
         <View style={styles.container}>
             {!hasPermission ? (
-                <Button
-                    title="Allow Camera Permission"
-                    onPress={requestCameraPermission}
-                />
+                <Pressable onPress={openSettings}>
+                    <Text
+                        style={{
+                            color: COLOR.TEXT,
+                        }}
+                    >
+                        Allow Camera Permission
+                    </Text>
+                </Pressable>
             ) : (
-                <CameraScanner
-                    handleBarCodeScanned={handleBarCodeScanned}
-                    isLit={isLit}
-                    setIsLit={setIsLit}
-                />
+                <CameraScanner handleBarCodeScanned={handleBarCodeScanned} isLit={isLit} setIsLit={setIsLit} />
             )}
         </View>
     );
@@ -99,8 +107,11 @@ const QRCodeScanner = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+
+        // justifyContent: 'center',
+        // alignItems: 'center',
+        // backgroundColor: COLOR.APP_BACKGROUND,
+        // backgroundColor: 'red',
     },
 });
 

@@ -1,13 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    SafeAreaView,
-    Image,
-    Linking,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Image, Linking } from 'react-native';
 import COLOR from '../constants/Colors';
 import UPIApps from '../constants/UpiApps';
 import { useTransaction } from '../context/TransactionContext';
@@ -17,11 +9,12 @@ import PAGES from '../constants/pages';
 const UPIAppSelection = ({ navigation }) => {
     const { upiParams } = useTransaction();
 
-    const handleSelectApp = (appName, generateDeeplink) => {
+    const handleSelectApp = async (appName, generateDeeplink) => {
         const deepLink = generateDeeplink(upiParams);
-        console.log(deepLink);
         try {
-            if (Linking.canOpenURL(deepLink)) {
+            const canOpenURL = await Linking.canOpenURL(deepLink);
+            console.log(canOpenURL);
+            if (canOpenURL) {
                 Linking.openURL(deepLink);
                 navigation.navigate(PAGES.BALANCE);
             } else {
@@ -35,13 +28,7 @@ const UPIAppSelection = ({ navigation }) => {
     return (
         <SafeAreaView style={styles.container}>
             {UPIApps.map((app, index) => (
-                <TouchableOpacity
-                    key={index}
-                    style={styles.button}
-                    onPress={() =>
-                        handleSelectApp(app.name, app.generateDeeplink)
-                    }
-                >
+                <TouchableOpacity key={index} style={styles.button} onPress={() => handleSelectApp(app.name, app.generateDeeplink)}>
                     {app.icon}
                     <Text style={styles.text}>{app.name}</Text>
                 </TouchableOpacity>

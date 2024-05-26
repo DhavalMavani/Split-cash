@@ -1,30 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import {
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    Pressable,
-    View,
-    TextInput,
-} from 'react-native';
-import Loader from '../components/Loader';
-import { FontAwesome } from '@expo/vector-icons';
-import apiHelper from '../helper/apiHelper';
-import PAGES from '../constants/pages';
-import FabIcon from '../components/FabIcon';
-import { useFocusEffect } from '@react-navigation/native';
-import copyToClipBoard from '../helper/copyToClipBoard';
-import { Feather } from '@expo/vector-icons';
-import EmptyScreen from '../components/EmptyScreen';
+import { Text, StyleSheet, SafeAreaView, ScrollView, Pressable, View, TextInput } from 'react-native';
 import COLOR from '../constants/Colors';
 import { calcHeight, calcWidth, getFontSizeByWindowWidth } from '../helper/res';
-import { useRef } from 'react';
-import GroupCard from '../components/GroupCard';
-import NoGroupsImage from '../assets/NoGroups.png';
-import Search from '../components/Search';
 import GroupSelectCard from '../components/GroupSelectCard';
 import { useTransaction } from '../context/TransactionContext';
+import UserAvatar from '../components/UserAvatar';
 function GroupListScreen({ navigation }) {
     const { setTransactionData, transactionData } = useTransaction();
     return (
@@ -40,6 +20,7 @@ function GroupListScreen({ navigation }) {
                             }));
                             navigation.goBack();
                         }}
+                        image={<UserAvatar user={member} />}
                     />
                 ))}
             </ScrollView>
